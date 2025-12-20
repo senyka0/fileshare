@@ -116,7 +116,7 @@ export default function Home() {
               id="expiration"
               value={expirationHours}
               onChange={(e) => setExpirationHours(Number(e.target.value))}
-              className="block w-full px-3 py-2.5 text-base sm:text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              className="block w-full px-3 py-2.5 text-gray-900 text-base sm:text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
               disabled={uploading}
             >
               {EXPIRATION_OPTIONS.map((opt) => (
