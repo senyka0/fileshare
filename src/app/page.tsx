@@ -84,9 +84,9 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
-        <h1 className="text-2xl font-bold mb-6 text-gray-900">File Sharing</h1>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-8 sm:py-12">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-4 sm:p-6 md:p-8">
+        <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-900">File Sharing</h1>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -100,7 +100,7 @@ export default function Home() {
               type="file"
               id="file"
               onChange={handleFileChange}
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              className="block w-full text-sm text-gray-500 file:mr-2 sm:file:mr-4 file:py-2 file:px-2 sm:file:px-4 file:rounded-md file:border-0 file:text-xs sm:file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 active:file:bg-blue-200"
               disabled={uploading}
             />
           </div>
@@ -116,7 +116,7 @@ export default function Home() {
               id="expiration"
               value={expirationHours}
               onChange={(e) => setExpirationHours(Number(e.target.value))}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              className="block w-full px-3 py-2.5 text-base sm:text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
               disabled={uploading}
             >
               {EXPIRATION_OPTIONS.map((opt) => (
@@ -147,7 +147,7 @@ export default function Home() {
           <button
             type="submit"
             disabled={!file || uploading}
-            className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium"
+            className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium text-base sm:text-sm touch-manipulation min-h-[44px]"
           >
             {uploading ? "Uploading..." : "Upload"}
           </button>
@@ -155,27 +155,27 @@ export default function Home() {
 
         {error && (
           <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-sm text-red-800">{error}</p>
+            <p className="text-sm sm:text-base text-red-800 break-words">{error}</p>
           </div>
         )}
 
         {downloadUrl && (
-          <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-md">
-            <p className="text-sm font-medium text-green-800 mb-2">
+          <div className="mt-4 p-3 sm:p-4 bg-green-50 border border-green-200 rounded-md">
+            <p className="text-sm sm:text-base font-medium text-green-800 mb-2">
               Upload successful!
             </p>
             {uploadedExpirationHours && (
-              <p className="text-sm text-green-700 mb-2">
+              <p className="text-sm sm:text-base text-green-700 mb-2">
                 Link expires in{" "}
                 {EXPIRATION_OPTIONS.find(
                   (opt) => opt.value === uploadedExpirationHours
                 )?.label || `${uploadedExpirationHours} hours`}
               </p>
             )}
-            <p className="text-sm text-green-700 mb-2">Download link:</p>
+            <p className="text-sm sm:text-base text-green-700 mb-2">Download link:</p>
             <a
               href={downloadUrl}
-              className="text-sm text-blue-600 hover:text-blue-800 break-all"
+              className="text-sm sm:text-base text-blue-600 hover:text-blue-800 active:text-blue-900 break-all underline"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -183,10 +183,10 @@ export default function Home() {
             </a>
             {password && (
               <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                <p className="text-sm font-medium text-yellow-800 mb-1">
+                <p className="text-sm sm:text-base font-medium text-yellow-800 mb-1">
                   Password (save this, cannot be recovered):
                 </p>
-                <p className="text-sm font-mono text-yellow-900 break-all">
+                <p className="text-xs sm:text-sm font-mono text-yellow-900 break-all select-all">
                   {password}
                 </p>
               </div>

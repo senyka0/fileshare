@@ -85,9 +85,9 @@ export default function DownloadPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
-          <p className="text-gray-600">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-8">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-4 sm:p-6 md:p-8">
+          <p className="text-gray-600 text-sm sm:text-base">Loading...</p>
         </div>
       </div>
     );
@@ -95,13 +95,13 @@ export default function DownloadPage() {
 
   if (error && !fileData) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
-          <h1 className="text-2xl font-bold mb-6 text-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-8">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-4 sm:p-6 md:p-8">
+          <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-900">
             File Download
           </h1>
           <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-sm text-red-800">{error}</p>
+            <p className="text-sm sm:text-base text-red-800 break-words">{error}</p>
           </div>
         </div>
       </div>
@@ -110,19 +110,19 @@ export default function DownloadPage() {
 
   if (fileData?.isProtected && !passwordVerified) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
-          <h1 className="text-2xl font-bold mb-6 text-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-8">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-4 sm:p-6 md:p-8">
+          <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-900">
             File Download
           </h1>
-          <p className="text-sm text-gray-600 mb-4">
+          <p className="text-sm sm:text-base text-gray-600 mb-4">
             This file is password protected.
           </p>
           <form onSubmit={handlePasswordSubmit} className="space-y-4">
             <div>
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-gray-700 mb-2"
+                className="block text-sm sm:text-base font-medium text-gray-700 mb-2"
               >
                 Password
               </label>
@@ -131,18 +131,19 @@ export default function DownloadPage() {
                 id="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="block w-full px-3 py-2.5 text-base sm:text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                 required
+                autoComplete="current-password"
               />
             </div>
             {error && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                <p className="text-sm text-red-800">{error}</p>
+                <p className="text-sm sm:text-base text-red-800 break-words">{error}</p>
               </div>
             )}
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 transition-colors font-medium"
+              className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 active:bg-blue-800 transition-colors font-medium text-base sm:text-sm touch-manipulation min-h-[44px]"
             >
               Verify Password
             </button>
@@ -153,26 +154,26 @@ export default function DownloadPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
-        <h1 className="text-2xl font-bold mb-6 text-gray-900">File Download</h1>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-8">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-4 sm:p-6 md:p-8">
+        <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-900">File Download</h1>
 
         {fileData && (
           <div className="space-y-4 mb-6">
             <div>
-              <label className="text-sm font-medium text-gray-700">
+              <label className="text-sm sm:text-base font-medium text-gray-700">
                 File Name
               </label>
-              <p className="mt-1 text-gray-900 break-all">
+              <p className="mt-1 text-sm sm:text-base text-gray-900 break-all">
                 {fileData.filename}
               </p>
             </div>
 
             <div>
-              <label className="text-sm font-medium text-gray-700">
+              <label className="text-sm sm:text-base font-medium text-gray-700">
                 File Size
               </label>
-              <p className="mt-1 text-gray-900">{fileData.size} MB</p>
+              <p className="mt-1 text-sm sm:text-base text-gray-900">{fileData.size} MB</p>
             </div>
           </div>
         )}
@@ -224,10 +225,15 @@ export default function DownloadPage() {
               );
             }
           }}
-          className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 transition-colors font-medium"
+          className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 active:bg-blue-800 transition-colors font-medium text-base sm:text-sm touch-manipulation min-h-[44px]"
         >
           Download File
         </button>
+        {error && (
+          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-sm sm:text-base text-red-800 break-words">{error}</p>
+          </div>
+        )}
       </div>
     </div>
   );
