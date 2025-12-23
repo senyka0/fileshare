@@ -31,12 +31,12 @@ export default function DownloadPage() {
       try {
         const response = await fetch(`/api/download/${id}/info`);
         if (response.status === 404) {
-          setError("File not found or has expired");
+          setError("Файл не найден или срок действия истек");
           setLoading(false);
           return;
         }
         if (!response.ok) {
-          setError("Failed to load file information");
+          setError("Не удалось загрузить информацию о файле");
           setLoading(false);
           return;
         }
@@ -48,7 +48,7 @@ export default function DownloadPage() {
         setLoading(false);
       } catch (err) {
         console.error("Failed to load file information:", err);
-        setError("Failed to load file information");
+        setError("Не удалось загрузить информацию о файле");
         setLoading(false);
       }
     }
@@ -67,7 +67,7 @@ export default function DownloadPage() {
       });
 
       if (!response.ok) {
-        setError("Incorrect password");
+        setError("Неверный пароль");
         return;
       }
 
@@ -78,16 +78,16 @@ export default function DownloadPage() {
       setError(
         err instanceof Error
           ? err.message
-          : "Failed to verify password. Please try again."
+          : "Не удалось проверить пароль. Пожалуйста, попробуйте снова."
       );
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-8">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-4 sm:p-6 md:p-8">
-          <p className="text-gray-600 text-sm sm:text-base">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center px-4 py-8">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-6 sm:p-8">
+          <p className="text-gray-600 text-sm sm:text-base">Загрузка...</p>
         </div>
       </div>
     );
@@ -95,12 +95,12 @@ export default function DownloadPage() {
 
   if (error && !fileData) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-8">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-4 sm:p-6 md:p-8">
-          <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-900">
-            File Download
+      <div className="min-h-screen flex items-center justify-center px-4 py-8">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-6 sm:p-8">
+          <h1 className="text-2xl sm:text-3xl font-bold mb-6 text-gray-900">
+            Скачать файл
           </h1>
-          <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+          <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
             <p className="text-sm sm:text-base text-red-800 break-words">{error}</p>
           </div>
         </div>
@@ -110,42 +110,42 @@ export default function DownloadPage() {
 
   if (fileData?.isProtected && !passwordVerified) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-8">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-4 sm:p-6 md:p-8">
-          <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-900">
-            File Download
+      <div className="min-h-screen flex items-center justify-center px-4 py-8">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-6 sm:p-8">
+          <h1 className="text-2xl sm:text-3xl font-bold mb-6 text-gray-900">
+            Скачать файл
           </h1>
-          <p className="text-sm sm:text-base text-gray-600 mb-4">
-            This file is password protected.
+          <p className="text-sm sm:text-base text-gray-600 mb-6">
+            Этот файл защищен паролем.
           </p>
-          <form onSubmit={handlePasswordSubmit} className="space-y-4">
+          <form onSubmit={handlePasswordSubmit} className="space-y-6">
             <div>
               <label
                 htmlFor="password"
                 className="block text-sm sm:text-base font-medium text-gray-700 mb-2"
               >
-                Password
+                Пароль
               </label>
               <input
                 type="password"
                 id="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="block w-full px-3 py-2.5 text-base text-gray-900 sm:text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                className="block w-full px-4 py-3 text-base text-gray-900 sm:text-sm border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                 required
                 autoComplete="current-password"
               />
             </div>
             {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+              <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
                 <p className="text-sm sm:text-base text-red-800 break-words">{error}</p>
               </div>
             )}
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 active:bg-blue-800 transition-colors font-medium text-base sm:text-sm touch-manipulation min-h-[44px]"
+              className="w-full bg-blue-500 text-white py-4 px-6 rounded-xl hover:bg-blue-600 active:bg-blue-700 transition-colors font-medium text-base shadow-md hover:shadow-lg"
             >
-              Verify Password
+              Проверить пароль
             </button>
           </form>
         </div>
@@ -154,26 +154,28 @@ export default function DownloadPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-8">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-4 sm:p-6 md:p-8">
-        <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-900">File Download</h1>
+    <div className="min-h-screen flex items-center justify-center px-4 py-8">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-6 sm:p-8">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-6 text-gray-900">Скачать файл</h1>
 
         {fileData && (
           <div className="space-y-4 mb-6">
             <div>
               <label className="text-sm sm:text-base font-medium text-gray-700">
-                File Name
+                Имя файла
               </label>
-              <p className="mt-1 text-sm sm:text-base text-gray-900 break-all">
+              <p className="mt-2 text-sm sm:text-base text-gray-900 break-all bg-gray-50 p-3 rounded-xl">
                 {fileData.filename}
               </p>
             </div>
 
             <div>
               <label className="text-sm sm:text-base font-medium text-gray-700">
-                File Size
+                Размер файла
               </label>
-              <p className="mt-1 text-sm sm:text-base text-gray-900">{fileData.size} MB</p>
+              <p className="mt-2 text-sm sm:text-base text-gray-900 bg-gray-50 p-3 rounded-xl">
+                {fileData.size} МБ
+              </p>
             </div>
           </div>
         )}
@@ -195,11 +197,11 @@ export default function DownloadPage() {
 
               if (!response.ok) {
                 if (response.status === 403) {
-                  setError("Password required or invalid");
+                  setError("Требуется пароль или пароль неверен");
                   setPasswordVerified(false);
                 } else {
                   setError(
-                    "Failed to download file. Please try again. If the problem persists, please contact support."
+                    "Не удалось скачать файл. Пожалуйста, попробуйте снова. Если проблема сохраняется, пожалуйста, свяжитесь с поддержкой."
                   );
                 }
                 return;
@@ -221,16 +223,16 @@ export default function DownloadPage() {
               setError(
                 err instanceof Error
                   ? err.message
-                  : "Failed to download file. Please try again."
+                  : "Не удалось скачать файл. Пожалуйста, попробуйте снова."
               );
             }
           }}
-          className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 active:bg-blue-800 transition-colors font-medium text-base sm:text-sm touch-manipulation min-h-[44px]"
+          className="w-full bg-blue-500 text-white py-4 px-6 rounded-xl hover:bg-blue-600 active:bg-blue-700 transition-colors font-medium text-base shadow-md hover:shadow-lg"
         >
-          Download File
+          Скачать файл
         </button>
         {error && (
-          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+          <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-xl">
             <p className="text-sm sm:text-base text-red-800 break-words">{error}</p>
           </div>
         )}

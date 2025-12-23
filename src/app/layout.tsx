@@ -3,8 +3,8 @@ import './globals.css';
 import { initializeApp } from '@/lib/init';
 
 export const metadata: Metadata = {
-  title: 'File Sharing',
-  description: 'Simple file sharing application',
+  title: 'Обмен файлами',
+  description: 'Простое приложение для обмена файлами',
 };
 
 export const viewport: Viewport = {
@@ -21,7 +21,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="ru">
       <body>{children}</body>
     </html>
   );
