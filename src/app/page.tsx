@@ -11,29 +11,24 @@ const EXPIRATION_OPTIONS = [
   { value: 168, label: "7 дней" },
 ];
 
+interface UploadItem {
+  id: string;
+  file: File;
+  progress: number;
+  status: "uploading" | "completed" | "error";
+  downloadUrl?: string;
+  password?: string;
+  error?: string;
+  expirationHours: number;
+}
+
 export default function Home() {
-  const [file, setFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
-  const [password, setPassword] = useState<string | null>(null);
+  const [uploads, setUploads] = useState<UploadItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [expirationHours, setExpirationHours] = useState(24);
   const [passwordProtected, setPasswordProtected] = useState(false);
-  const [uploadedExpirationHours, setUploadedExpirationHours] = useState<
-    number | null
-  >(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [urlCopied, setUrlCopied] = useState(false);
-  const [passwordCopied, setPasswordCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFileChange = (selectedFile: File) => {
-    if (selectedFile) {
-      setFile(selectedFile);
-      setError(null);
-      setDownloadUrl(null);
-    }
-  };
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -48,68 +43,153 @@ export default function Home() {
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
-    const droppedFile = e.dataTransfer.files?.[0];
-    if (droppedFile) {
-      handleFileChange(droppedFile);
-    }
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    droppedFiles.forEach((droppedFile) => {
+      handleFileSelect(droppedFile);
+    });
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      handleFileChange(selectedFile);
+    const selectedFiles = Array.from(e.target.files || []);
+    selectedFiles.forEach((selectedFile) => {
+      handleFileSelect(selectedFile);
+    });
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
+  };
+
+  const handleFileSelect = (selectedFile: File) => {
+    setError(null);
+    const uploadId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const newUpload: UploadItem = {
+      id: uploadId,
+      file: selectedFile,
+      progress: 0,
+      status: "uploading",
+      expirationHours,
+    };
+
+    setUploads((prev) => [...prev, newUpload]);
+    startUpload(newUpload);
+  };
+
+  const startUpload = async (uploadItem: UploadItem) => {
+    const formData = new FormData();
+    formData.append("file", uploadItem.file);
+    formData.append("expirationHours", uploadItem.expirationHours.toString());
+    formData.append("passwordProtected", passwordProtected.toString());
+
+    const xhr = new XMLHttpRequest();
+
+    xhr.upload.addEventListener("progress", (e) => {
+      if (e.lengthComputable) {
+        const progress = Math.round((e.loaded / e.total) * 100);
+        setUploads((prev) =>
+          prev.map((item) =>
+            item.id === uploadItem.id ? { ...item, progress } : item
+          )
+        );
+      }
+    });
+
+    xhr.addEventListener("load", () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          setUploads((prev) =>
+            prev.map((item) =>
+              item.id === uploadItem.id
+                ? {
+                    ...item,
+                    status: "completed",
+                    progress: 100,
+                    downloadUrl: data.url,
+                    password: data.password || undefined,
+                  }
+                : item
+            )
+          );
+        } catch {
+          setUploads((prev) =>
+            prev.map((item) =>
+              item.id === uploadItem.id
+                ? {
+                    ...item,
+                    status: "error",
+                    error: "Не удалось обработать ответ сервера",
+                  }
+                : item
+            )
+          );
+        }
+      } else {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          setUploads((prev) =>
+            prev.map((item) =>
+              item.id === uploadItem.id
+                ? {
+                    ...item,
+                    status: "error",
+                    error: data.error || "Ошибка загрузки",
+                  }
+                : item
+            )
+          );
+        } catch {
+          setUploads((prev) =>
+            prev.map((item) =>
+              item.id === uploadItem.id
+                ? {
+                    ...item,
+                    status: "error",
+                    error: "Ошибка загрузки",
+                  }
+                : item
+            )
+          );
+        }
+      }
+    });
+
+    xhr.addEventListener("error", () => {
+      setUploads((prev) =>
+        prev.map((item) =>
+          item.id === uploadItem.id
+            ? {
+                ...item,
+                status: "error",
+                error: "Ошибка сети",
+              }
+            : item
+        )
+      );
+    });
+
+    xhr.addEventListener("abort", () => {
+      setUploads((prev) =>
+        prev.map((item) =>
+          item.id === uploadItem.id
+            ? {
+                ...item,
+                status: "error",
+                error: "Загрузка отменена",
+              }
+            : item
+        )
+      );
+    });
+
+    xhr.open("POST", "/api/upload");
+    xhr.send(formData);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!file) {
-      setError("Пожалуйста, выберите файл");
-      return;
-    }
-
-    setUploading(true);
     setError(null);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("expirationHours", expirationHours.toString());
-      formData.append("passwordProtected", passwordProtected.toString());
-
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(
-          data.error ||
-            "Загрузка не удалась. Пожалуйста, попробуйте снова. Если проблема сохраняется, пожалуйста, свяжитесь с поддержкой."
-        );
-        return;
-      }
-
-      setDownloadUrl(data.url);
-      if (data.password) {
-        setPassword(data.password);
-      }
-      setUploadedExpirationHours(expirationHours);
-      setFile(null);
-      setPasswordProtected(false);
-      setExpirationHours(24);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Загрузка не удалась. Пожалуйста, попробуйте снова. Если проблема сохраняется, пожалуйста, свяжитесь с поддержкой."
-      );
-    } finally {
-      setUploading(false);
-    }
+    setPasswordProtected(false);
+    setExpirationHours(24);
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -120,23 +200,56 @@ export default function Home() {
     return (bytes / (1024 * 1024 * 1024)).toFixed(1) + " ГБ";
   };
 
-  const copyToClipboard = async (text: string, type: "url" | "password") => {
+  const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      if (type === "url") {
-        setUrlCopied(true);
-        setTimeout(() => setUrlCopied(false), 2000);
-      } else {
-        setPasswordCopied(true);
-        setTimeout(() => setPasswordCopied(false), 2000);
-      }
-    } catch (err) {
-      console.error("Failed to copy:", err);
+    } catch {
+      console.error("Failed to copy");
     }
   };
 
+  const removeUpload = (id: string) => {
+    setUploads((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const getFileIcon = (filename: string) => {
+    const ext = filename.split(".").pop()?.toLowerCase();
+    if (["zip", "rar", "7z", "tar", "gz"].includes(ext || "")) {
+      return (
+        <svg
+          className="w-5 h-5 text-blue-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+          />
+        </svg>
+      );
+    }
+    return (
+      <svg
+        className="w-5 h-5 text-blue-500"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+        />
+      </svg>
+    );
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-8 sm:py-12">
+    <div className="min-h-screen flex flex-col items-center px-4 py-8 sm:py-12">
       <div className="max-w-2xl w-full space-y-6">
         <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -156,7 +269,7 @@ export default function Home() {
                 type="file"
                 onChange={handleFileInputChange}
                 className="hidden"
-                disabled={uploading}
+                multiple
               />
               <div className="flex flex-col items-center gap-4">
                 <svg
@@ -180,16 +293,6 @@ export default function Home() {
                     JPEG, PNG, PDF, ZIP (макс. размер 10 ГБ)
                   </p>
                 </div>
-                {file && (
-                  <div className="mt-4 p-4 bg-gray-50 rounded-xl w-full">
-                    <p className="text-sm font-medium text-gray-900">
-                      {file.name}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {formatFileSize(file.size)}
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -206,7 +309,6 @@ export default function Home() {
                   value={expirationHours}
                   onChange={(e) => setExpirationHours(Number(e.target.value))}
                   className="block w-full px-4 py-3 text-gray-900 text-sm border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                  disabled={uploading}
                 >
                   {EXPIRATION_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -216,31 +318,42 @@ export default function Home() {
                 </select>
               </div>
 
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="passwordProtected"
-                  checked={passwordProtected}
-                  onChange={(e) => setPasswordProtected(e.target.checked)}
-                  className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  disabled={uploading}
-                />
-                <label
-                  htmlFor="passwordProtected"
-                  className="ml-3 block text-sm text-gray-700"
+              <button
+                type="button"
+                id="passwordProtected"
+                onClick={() => setPasswordProtected(!passwordProtected)}
+                className={`ml-1 relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                  passwordProtected
+                    ? "focus:ring-[#6BC1FB]"
+                    : "focus:ring-gray-300"
+                }`}
+                style={{
+                  backgroundColor: passwordProtected ? "#6BC1FB" : "#D6EFFF",
+                }}
+                role="switch"
+                aria-checked={passwordProtected}
+              >
+                <span
+                  className={`inline-flex items-center justify-center h-5 w-5 transform rounded-full bg-white transition-transform duration-300 shadow-sm ${
+                    passwordProtected ? "translate-x-[22px]" : "translate-x-0.5"
+                  }`}
                 >
-                  Защитить паролем
-                </label>
-              </div>
+                  <svg
+                    className="w-3 h-3"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      clipRule="evenodd"
+                      d="M21.7071 2.29289C22.0976 2.68342 22.0976 3.31658 21.7071 3.70711L21.1642 4.24999L22.789 5.87475C23.57 6.6558 23.57 7.92213 22.789 8.70317L20.3126 11.1796C19.5315 11.9606 18.2652 11.9606 17.4842 11.1796L15.8594 9.55482L12.7489 12.6653C13.5356 13.7403 14 15.0659 14 16.5C14 20.0899 11.0899 23 7.5 23C3.91015 23 1 20.0899 1 16.5C1 12.9101 3.91015 10 7.5 10C8.9341 10 10.2597 10.4644 11.3347 11.2511L20.2929 2.29289C20.6834 1.90237 21.3166 1.90237 21.7071 2.29289ZM17.2736 8.14061L18.8984 9.76537L21.3748 7.28896L19.75 5.6642L17.2736 8.14061ZM7.5 12C5.01472 12 3 14.0147 3 16.5C3 18.9853 5.01472 21 7.5 21C9.98528 21 12 18.9853 12 16.5C12 14.0147 9.98528 12 7.5 12Z"
+                      fill="#6BC1FB"
+                    />
+                  </svg>
+                </span>
+              </button>
             </div>
-
-            <button
-              type="submit"
-              disabled={!file || uploading}
-              className="w-full bg-blue-500 text-white py-4 px-6 rounded-xl hover:bg-blue-600 active:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium text-base shadow-md hover:shadow-lg"
-            >
-              {uploading ? "Загрузка..." : "Загрузить файл"}
-            </button>
           </form>
 
           {error && (
@@ -248,142 +361,230 @@ export default function Home() {
               <p className="text-sm text-red-800 break-words">{error}</p>
             </div>
           )}
-
-          {downloadUrl && (
-            <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-xl">
-              <p className="text-sm font-medium text-green-800 mb-2">
-                Загрузка успешна!
-              </p>
-              {uploadedExpirationHours && (
-                <p className="text-sm text-green-700">
-                  Ссылка истекает через{" "}
-                  {EXPIRATION_OPTIONS.find(
-                    (opt) => opt.value === uploadedExpirationHours
-                  )?.label || `${uploadedExpirationHours} часов`}
-                </p>
-              )}
-            </div>
-          )}
         </div>
-        {downloadUrl && (
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex-shrink-0 w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                <svg
-                  className="w-5 h-5 text-blue-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-                  />
-                </svg>
-              </div>
-              <input
-                type="text"
-                value={downloadUrl}
-                readOnly
-                className="flex-1 px-4 py-2 text-sm text-gray-900 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400"
-              />
-              <button
-                onClick={() => copyToClipboard(downloadUrl, "url")}
-                className="flex-shrink-0 w-10 h-10 bg-blue-500 hover:bg-blue-600 rounded-xl flex items-center justify-center transition-colors"
-                title="Копировать ссылку"
+
+        {uploads.length > 0 && (
+          <div className="space-y-4">
+            {uploads.map((upload) => (
+              <div
+                key={upload.id}
+                className="bg-white rounded-2xl shadow-lg p-4 sm:p-6"
               >
-                {urlCopied ? (
-                  <svg
-                    className="w-5 h-5 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                ) : (
-                  <svg
-                    className="w-5 h-5 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                    />
-                  </svg>
-                )}
-              </button>
-            </div>
-            {password && (
-              <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
-                <div className="flex items-center gap-3">
-                  <div className="flex-shrink-0 w-8 h-8 bg-yellow-200 rounded-lg flex items-center justify-center">
-                    <svg
-                      className="w-4 h-4 text-yellow-800"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                {upload.status === "uploading" && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-shrink-0">
+                        {getFileIcon(upload.file.name)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {upload.file.name}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {formatFileSize(
+                            (upload.progress * upload.file.size) / 100
+                          )}{" "}
+                          из {formatFileSize(upload.file.size)} -{" "}
+                          {upload.progress}% Загружено
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => removeUpload(upload.id)}
+                        className="flex-shrink-0 w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors"
+                        title="Отменить"
+                      >
+                        <svg
+                          className="w-5 h-5 text-gray-500"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                    <div
+                      className="w-full rounded-full h-4"
+                      style={{ backgroundColor: "#D6EFFF" }}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
+                      <div
+                        className="h-4 rounded-full transition-all duration-300"
+                        style={{
+                          width: `${upload.progress}%`,
+                          backgroundColor: "#6BC1FB",
+                        }}
                       />
-                    </svg>
+                    </div>
                   </div>
-                  <p className="flex-1 text-xs font-mono text-yellow-900 break-all select-all">
-                    {password}
-                  </p>
-                  <button
-                    onClick={() => copyToClipboard(password, "password")}
-                    className="flex-shrink-0 w-8 h-8 bg-yellow-200 hover:bg-yellow-300 rounded-lg flex items-center justify-center transition-colors"
-                    title="Копировать пароль"
-                  >
-                    {passwordCopied ? (
-                      <svg
-                        className="w-4 h-4 text-yellow-900"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                    ) : (
-                      <svg
-                        className="w-4 h-4 text-yellow-900"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                        />
-                      </svg>
+                )}
+
+                {upload.status === "completed" && upload.downloadUrl && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-shrink-0">
+                        {getFileIcon(upload.file.name)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {upload.file.name}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {formatFileSize(upload.file.size)} из{" "}
+                          {formatFileSize(upload.file.size)} - Загружено
+                        </p>
+                      </div>
+                      <div className="flex-shrink-0 w-6 h-6 text-green-500">
+                        <svg
+                          className="w-6 h-6"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+
+                    <div className="p-4 border border-gray-200 rounded-xl">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center">
+                          <svg
+                            className="w-4 h-4"
+                            viewBox="0 0 16 16"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M7.05025 1.53553C8.03344 0.552348 9.36692 0 10.7574 0C13.6528 0 16 2.34721 16 5.24264C16 6.63308 15.4477 7.96656 14.4645 8.94975L12.4142 11L11 9.58579L13.0503 7.53553C13.6584 6.92742 14 6.10264 14 5.24264C14 3.45178 12.5482 2 10.7574 2C9.89736 2 9.07258 2.34163 8.46447 2.94975L6.41421 5L5 3.58579L7.05025 1.53553Z"
+                              fill="#A3D6EF"
+                            />
+                            <path
+                              d="M7.53553 13.0503L9.58579 11L11 12.4142L8.94975 14.4645C7.96656 15.4477 6.63308 16 5.24264 16C2.34721 16 0 13.6528 0 10.7574C0 9.36693 0.552347 8.03344 1.53553 7.05025L3.58579 5L5 6.41421L2.94975 8.46447C2.34163 9.07258 2 9.89736 2 10.7574C2 12.5482 3.45178 14 5.24264 14C6.10264 14 6.92742 13.6584 7.53553 13.0503Z"
+                              fill="#A3D6EF"
+                            />
+                            <path
+                              d="M5.70711 11.7071L11.7071 5.70711L10.2929 4.29289L4.29289 10.2929L5.70711 11.7071Z"
+                              fill="#A3D6EF"
+                            />
+                          </svg>
+                        </div>
+                        <p className="flex-1 text-xs font-mono text-blue-900 break-all select-all">
+                          {upload.downloadUrl}
+                        </p>
+                        <button
+                          onClick={() => copyToClipboard(upload.downloadUrl!)}
+                          className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+                          title="Копировать ссылку"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            viewBox="0 0 20 20"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              fill="#A3D6EF"
+                              fillRule="evenodd"
+                              d="M4 2a2 2 0 00-2 2v9a2 2 0 002 2h2v2a2 2 0 002 2h9a2 2 0 002-2V8a2 2 0 00-2-2h-2V4a2 2 0 00-2-2H4zm9 4V4H4v9h2V8a2 2 0 012-2h5zM8 8h9v9H8V8z"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+
+                    {upload.password && (
+                      <div className="p-4 border border-gray-200 rounded-xl">
+                        <div className="flex items-center gap-3">
+                          <div className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center">
+                            <svg
+                              className="w-4 h-4"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                clipRule="evenodd"
+                                d="M21.7071 2.29289C22.0976 2.68342 22.0976 3.31658 21.7071 3.70711L21.1642 4.24999L22.789 5.87475C23.57 6.6558 23.57 7.92213 22.789 8.70317L20.3126 11.1796C19.5315 11.9606 18.2652 11.9606 17.4842 11.1796L15.8594 9.55482L12.7489 12.6653C13.5356 13.7403 14 15.0659 14 16.5C14 20.0899 11.0899 23 7.5 23C3.91015 23 1 20.0899 1 16.5C1 12.9101 3.91015 10 7.5 10C8.9341 10 10.2597 10.4644 11.3347 11.2511L20.2929 2.29289C20.6834 1.90237 21.3166 1.90237 21.7071 2.29289ZM17.2736 8.14061L18.8984 9.76537L21.3748 7.28896L19.75 5.6642L17.2736 8.14061ZM7.5 12C5.01472 12 3 14.0147 3 16.5C3 18.9853 5.01472 21 7.5 21C9.98528 21 12 18.9853 12 16.5C12 14.0147 9.98528 12 7.5 12Z"
+                                fill="#A3D6EF"
+                              />
+                            </svg>
+                          </div>
+                          <p className="flex-1 text-xs font-mono text-yellow-900 break-all select-all">
+                            {upload.password}
+                          </p>
+                          <button
+                            onClick={() => copyToClipboard(upload.password!)}
+                            className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+                            title="Копировать пароль"
+                          >
+                            <svg
+                              className="w-4 h-4"
+                              viewBox="0 0 20 20"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                fill="#A3D6EF"
+                                fillRule="evenodd"
+                                d="M4 2a2 2 0 00-2 2v9a2 2 0 002 2h2v2a2 2 0 002 2h9a2 2 0 002-2V8a2 2 0 00-2-2h-2V4a2 2 0 00-2-2H4zm9 4V4H4v9h2V8a2 2 0 012-2h5zM8 8h9v9H8V8z"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
                     )}
-                  </button>
-                </div>
+                  </div>
+                )}
+
+                {upload.status === "error" && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-shrink-0">
+                        {getFileIcon(upload.file.name)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {upload.file.name}
+                        </p>
+                        <p className="text-xs text-red-600 mt-1">
+                          {upload.error || "Ошибка загрузки"}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => removeUpload(upload.id)}
+                        className="flex-shrink-0 w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors"
+                        title="Закрыть"
+                      >
+                        <svg
+                          className="w-5 h-5 text-gray-500"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+            ))}
           </div>
         )}
       </div>
