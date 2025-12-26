@@ -28,8 +28,14 @@ export async function GET(
         return NextResponse.json({ error: "Files have expired" }, { status: 404 });
       }
 
+      let totalSizeBytes = 0;
       const filesInfo = files.map((f) => {
-        const fileSizeMB = (f.size / 1024 / 1024).toFixed(2);
+        const sizeBytes = Number(f.size);
+        if (isNaN(sizeBytes) || sizeBytes < 0) {
+          console.error(`Invalid file size for file ${f.id}: ${f.size}`);
+        }
+        totalSizeBytes += sizeBytes;
+        const fileSizeMB = (sizeBytes / (1024 * 1024)).toFixed(2);
         return {
           id: f.id,
           filename: f.original_filename,
@@ -37,7 +43,7 @@ export async function GET(
         };
       });
 
-      const totalSizeMB = files.reduce((sum, f) => sum + f.size, 0) / 1024 / 1024;
+      const totalSizeMB = totalSizeBytes / (1024 * 1024);
 
       return NextResponse.json({
         files: filesInfo,
@@ -63,7 +69,8 @@ export async function GET(
       );
     }
 
-    const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
+    const sizeBytes = Number(file.size);
+    const fileSizeMB = (sizeBytes / (1024 * 1024)).toFixed(2);
 
     return NextResponse.json({
       files: [{

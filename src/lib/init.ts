@@ -1,4 +1,4 @@
-import { startCleanupJob } from './cleanup';
+import { startCleanupJob } from "./cleanup";
 
 let initialized = false;
 
@@ -7,13 +7,14 @@ export function initializeApp(): void {
     return;
   }
 
-  if (typeof window === 'undefined' && process.env.NODE_ENV === 'production') {
+  if (typeof window === "undefined" && process.env.NODE_ENV === "production") {
     try {
       startCleanupJob();
       initialized = true;
     } catch {
-      console.warn('Could not start cleanup job during build, will retry at runtime');
+      console.warn(
+        "Could not start cleanup job during build, will retry at runtime"
+      );
     }
   }
 }
-

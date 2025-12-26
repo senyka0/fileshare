@@ -16,8 +16,15 @@ function initDb(): Pool {
     password: process.env.POSTGRES_PASSWORD,
   };
 
-  if (!requiredEnvVars.host || !requiredEnvVars.database || !requiredEnvVars.user || !requiredEnvVars.password) {
-    throw new Error("Missing required database environment variables: POSTGRES_HOST, POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD");
+  if (
+    !requiredEnvVars.host ||
+    !requiredEnvVars.database ||
+    !requiredEnvVars.user ||
+    !requiredEnvVars.password
+  ) {
+    throw new Error(
+      "Missing required database environment variables: POSTGRES_HOST, POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD"
+    );
   }
 
   pool = new Pool({
@@ -29,6 +36,10 @@ function initDb(): Pool {
     max: 20,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
+  });
+
+  pool.on("connect", async (client) => {
+    await client.query("SET client_encoding TO UTF8");
   });
 
   pool.on("error", (err) => {
@@ -76,9 +87,7 @@ async function initSchema(): Promise<void> {
           `ALTER TABLE files ADD COLUMN size BIGINT NOT NULL DEFAULT 0`
         );
       } else if (columnTypes.get("size") === "integer") {
-        await client.query(
-          `ALTER TABLE files ALTER COLUMN size TYPE BIGINT`
-        );
+        await client.query(`ALTER TABLE files ALTER COLUMN size TYPE BIGINT`);
       }
 
       if (!columnNames.includes("password_hash")) {
@@ -87,7 +96,9 @@ async function initSchema(): Promise<void> {
 
       if (!columnNames.includes("batch_id")) {
         await client.query(`ALTER TABLE files ADD COLUMN batch_id TEXT`);
-        await client.query(`CREATE INDEX IF NOT EXISTS idx_files_batch_id ON files(batch_id)`);
+        await client.query(
+          `CREATE INDEX IF NOT EXISTS idx_files_batch_id ON files(batch_id)`
+        );
       }
     } finally {
       client.release();
@@ -123,7 +134,16 @@ export async function insertFile(
   await database.query(
     `INSERT INTO files (id, batch_id, original_filename, file_path, size, expires_at, password_hash, created_at)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-    [id, batchId, originalFilename, filePath, size, expiresAt, passwordHash, createdAt]
+    [
+      id,
+      batchId,
+      originalFilename,
+      filePath,
+      size,
+      expiresAt,
+      passwordHash,
+      createdAt,
+    ]
   );
 }
 
@@ -152,7 +172,9 @@ export async function getExpiredFiles(now: number): Promise<FileRecord[]> {
   return result.rows as FileRecord[];
 }
 
-export async function getFilesByBatchId(batchId: string): Promise<FileRecord[]> {
+export async function getFilesByBatchId(
+  batchId: string
+): Promise<FileRecord[]> {
   await initSchema();
   const database = initDb();
   const result = await database.query(

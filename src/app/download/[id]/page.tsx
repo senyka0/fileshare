@@ -11,7 +11,7 @@ interface FileInfo {
 
 const getFileIcon = (filename: string) => {
   const ext = filename.split(".").pop()?.toLowerCase();
-  
+
   const imageExts = ["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg"];
   const documentExts = ["pdf", "doc", "docx", "txt", "rtf", "odt"];
   const videoExts = ["mp4", "avi", "mov", "wmv", "flv"];
@@ -22,89 +22,179 @@ const getFileIcon = (filename: string) => {
 
   if (imageExts.includes(ext || "")) {
     return (
-      <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      <svg
+        className="w-5 h-5 text-green-500"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+        />
       </svg>
     );
   }
-  
+
   if (documentExts.includes(ext || "")) {
     if (ext === "pdf") {
       return (
-        <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+        <svg
+          className="w-5 h-5 text-red-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+          />
         </svg>
       );
     }
     return (
-      <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      <svg
+        className="w-5 h-5 text-blue-500"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+        />
       </svg>
     );
   }
-  
+
   if (videoExts.includes(ext || "")) {
     return (
-      <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+      <svg
+        className="w-5 h-5 text-purple-500"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+        />
       </svg>
     );
   }
-  
+
   if (audioExts.includes(ext || "")) {
     return (
-      <svg className="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+      <svg
+        className="w-5 h-5 text-yellow-500"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+        />
       </svg>
     );
   }
-  
+
   if (spreadsheetExts.includes(ext || "")) {
     return (
-      <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+      <svg
+        className="w-5 h-5 text-green-600"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+        />
       </svg>
     );
   }
-  
+
   if (presentationExts.includes(ext || "")) {
     return (
-      <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+      <svg
+        className="w-5 h-5 text-orange-500"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"
+        />
       </svg>
     );
   }
-  
+
   if (archiveExts.includes(ext || "")) {
     return (
-      <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+      <svg
+        className="w-5 h-5 text-blue-500"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+        />
       </svg>
     );
   }
-  
+
   return (
-    <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    <svg
+      className="w-5 h-5 text-gray-500"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+      />
     </svg>
   );
 };
 
-const formatFileSize = (sizeString: string): string => {
-  const value = parseFloat(sizeString);
-  
-  let bytes: number;
-  
-  if (value > 1000000000) {
-    bytes = value;
-  } else {
-    bytes = value * 1024 * 1024;
+const formatFileSize = (mbString: string): string => {
+  const mb = parseFloat(mbString);
+
+  if (mb < 0.001) {
+    const kb = mb * 1024;
+    return kb.toFixed(1) + " КБ";
   }
-  
-  if (bytes < 1024) return bytes.toFixed(0) + " Б";
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " КБ";
-  if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + " МБ";
-  return (bytes / (1024 * 1024 * 1024)).toFixed(2) + " ГБ";
+  if (mb < 1) {
+    return mb.toFixed(2) + " МБ";
+  }
+  if (mb < 1024) {
+    return mb.toFixed(1) + " МБ";
+  }
+  const gb = mb / 1024;
+  return gb.toFixed(2) + " ГБ";
 };
 
 export default function DownloadPage() {
@@ -190,29 +280,22 @@ export default function DownloadPage() {
 
   const handleDownload = async (fileId: string, filename: string) => {
     try {
-      const response = await fetch(
-        `/api/download/${id}?fileId=${fileId}`,
-        {
-          method: fileData?.isProtected ? "POST" : "GET",
-          headers: fileData?.isProtected
-            ? {
-                "Content-Type": "application/json",
-              }
-            : {},
-          body: fileData?.isProtected
-            ? JSON.stringify({ password })
-            : undefined,
-        }
-      );
+      const response = await fetch(`/api/download/${id}?fileId=${fileId}`, {
+        method: fileData?.isProtected ? "POST" : "GET",
+        headers: fileData?.isProtected
+          ? {
+              "Content-Type": "application/json",
+            }
+          : {},
+        body: fileData?.isProtected ? JSON.stringify({ password }) : undefined,
+      });
 
       if (!response.ok) {
         if (response.status === 403) {
           setError("Требуется пароль или пароль неверен");
           setPasswordVerified(false);
         } else {
-          setError(
-            "Не удалось скачать файл. Пожалуйста, попробуйте снова."
-          );
+          setError("Не удалось скачать файл. Пожалуйста, попробуйте снова.");
         }
         return;
       }
@@ -253,7 +336,9 @@ export default function DownloadPage() {
             Скачать файлы
           </h1>
           <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
-            <p className="text-sm sm:text-base text-red-800 break-words">{error}</p>
+            <p className="text-sm sm:text-base text-red-800 break-words">
+              {error}
+            </p>
           </div>
         </div>
       </div>
@@ -290,7 +375,9 @@ export default function DownloadPage() {
             </div>
             {error && (
               <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
-                <p className="text-sm sm:text-base text-red-800 break-words">{error}</p>
+                <p className="text-sm sm:text-base text-red-800 break-words">
+                  {error}
+                </p>
               </div>
             )}
             <button
@@ -359,7 +446,9 @@ export default function DownloadPage() {
 
         {error && (
           <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-xl">
-            <p className="text-sm sm:text-base text-red-800 break-words">{error}</p>
+            <p className="text-sm sm:text-base text-red-800 break-words">
+              {error}
+            </p>
           </div>
         )}
       </div>

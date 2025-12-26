@@ -7,11 +7,65 @@ import { insertFile } from "@/lib/db";
 import { Readable } from "stream";
 import busboy from "busboy";
 
+function webStreamToNodeStream(
+  webStream: ReadableStream<Uint8Array>
+): NodeJS.ReadableStream {
+  return Readable.fromWeb(webStream as Parameters<typeof Readable.fromWeb>[0]);
+}
+
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
 function sanitizeFilenameForStorage(filename: string): string {
   return filename.substring(0, 255);
+}
+
+function decodeFilename(filename: string | Buffer): string {
+  if (Buffer.isBuffer(filename)) {
+    return filename.toString("utf8");
+  }
+
+  if (typeof filename !== "string") {
+    return String(filename);
+  }
+
+  try {
+    if (/[\x80-\xFF]/.test(filename)) {
+      const latin1Bytes = Buffer.from(filename, "latin1");
+      const utf8Decoded = latin1Bytes.toString("utf8");
+
+      if (utf8Decoded !== filename) {
+        const hasCyrillic = /[\u0400-\u04FF]/.test(utf8Decoded);
+        const hasValidUnicode = /^[\x20-\x7E\u0080-\uFFFF]*$/.test(utf8Decoded);
+        const hasInvalidChars = /[\uFFFD]/.test(utf8Decoded);
+
+        if (hasCyrillic && !hasInvalidChars && hasValidUnicode) {
+          return utf8Decoded;
+        }
+
+        if (
+          !hasInvalidChars &&
+          hasValidUnicode &&
+          utf8Decoded.length < filename.length * 1.5
+        ) {
+          return utf8Decoded;
+        }
+      }
+    }
+
+    try {
+      const decoded = decodeURIComponent(filename);
+      if (decoded !== filename && /[\u0400-\u04FF]/.test(decoded)) {
+        return decoded;
+      }
+    } catch (e) {
+      console.error("Error decoding filename:", e);
+    }
+  } catch (e) {
+    console.error("Error decoding filename:", e);
+  }
+
+  return filename;
 }
 
 function isValidUUID(id: string): boolean {
@@ -75,7 +129,11 @@ const getUploadDir = (): string => {
 const UPLOAD_DIR = getUploadDir();
 
 if (process.env.NODE_ENV !== "production") {
-  console.log(`[Upload] Using upload directory: ${UPLOAD_DIR} (NODE_ENV: ${process.env.NODE_ENV || "undefined"})`);
+  console.log(
+    `[Upload] Using upload directory: ${UPLOAD_DIR} (NODE_ENV: ${
+      process.env.NODE_ENV || "undefined"
+    })`
+  );
 }
 
 function generatePassword(): string {
@@ -133,7 +191,7 @@ export async function POST(request: NextRequest) {
       const fileSizes: Map<string, number> = new Map();
       const fileBytesWritten: Map<string, number> = new Map();
       const pendingFiles: Set<string> = new Set();
-      
+
       let expirationHours = 24;
       let passwordProtected = false;
       let password: string | null = null;
@@ -159,7 +217,7 @@ export async function POST(request: NextRequest) {
           return;
         }
 
-        const originalFilename = info.filename;
+        const originalFilename = decodeFilename(info.filename);
         const lastDot = originalFilename.lastIndexOf(".");
         const extension =
           lastDot >= 0 ? originalFilename.toLowerCase().substring(lastDot) : "";
@@ -168,12 +226,7 @@ export async function POST(request: NextRequest) {
           stream.resume();
           hasError = true;
           errorMessage = "File type not allowed";
-          resolve(
-            NextResponse.json(
-              { error: errorMessage },
-              { status: 400 }
-            )
-          );
+          resolve(NextResponse.json({ error: errorMessage }, { status: 400 }));
           return;
         }
 
@@ -186,12 +239,7 @@ export async function POST(request: NextRequest) {
           stream.resume();
           hasError = true;
           errorMessage = "Failed to generate file ID";
-          resolve(
-            NextResponse.json(
-              { error: errorMessage },
-              { status: 500 }
-            )
-          );
+          resolve(NextResponse.json({ error: errorMessage }, { status: 500 }));
           return;
         }
 
@@ -216,9 +264,7 @@ export async function POST(request: NextRequest) {
           stream.resume();
           hasError = true;
           errorMessage = "Invalid file path";
-          resolve(
-            NextResponse.json({ error: errorMessage }, { status: 500 })
-          );
+          resolve(NextResponse.json({ error: errorMessage }, { status: 500 }));
           return;
         }
 
@@ -253,10 +299,7 @@ export async function POST(request: NextRequest) {
                 : `${maxSizeMB.toFixed(2)}MB`;
             errorMessage = `File size exceeds maximum allowed size of ${sizeDisplay}`;
             resolve(
-              NextResponse.json(
-                { error: errorMessage },
-                { status: 400 }
-              )
+              NextResponse.json({ error: errorMessage }, { status: 400 })
             );
             return;
           }
@@ -298,7 +341,7 @@ export async function POST(request: NextRequest) {
             size,
           });
           pendingFiles.delete(id);
-          
+
           if (finishCalled && pendingFiles.size === 0) {
             processUploadedFiles();
           }
@@ -414,7 +457,7 @@ export async function POST(request: NextRequest) {
       });
 
       if (body) {
-        const nodeStream = Readable.fromWeb(body);
+        const nodeStream = webStreamToNodeStream(body);
         nodeStream.pipe(bb);
       } else {
         resolve(
