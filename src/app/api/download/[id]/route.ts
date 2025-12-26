@@ -1,17 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createReadStream, existsSync, statSync } from "fs";
 import bcrypt from "bcrypt";
-import { getFileById } from "@/lib/db";
+import { getFileById, getFilesByBatchId } from "@/lib/db";
 
 function isValidUUID(id: string): boolean {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   return uuidRegex.test(id);
 }
 
-function sanitizeFilename(filename: string): string {
-  return filename
-    .replace(/[^a-zA-Z0-9._-]/g, '_')
+function encodeFilenameForHeader(filename: string): string {
+  const asciiOnly = /^[\x20-\x7E]*$/;
+  
+  if (asciiOnly.test(filename)) {
+    return `filename="${filename.replace(/"/g, '\\"')}"`;
+  }
+  
+  const encoded = encodeURIComponent(filename)
+    .replace(/'/g, "%27")
+    .replace(/\(/g, "%28")
+    .replace(/\)/g, "%29");
+  
+  const asciiFallback = filename
+    .replace(/[^\x20-\x7E]/g, '_')
+    .replace(/"/g, '\\"')
     .substring(0, 255);
+  
+  return `filename="${asciiFallback}"; filename*=UTF-8''${encoded}`;
 }
 
 async function verifyPassword(
@@ -49,10 +63,26 @@ export async function GET(
 ) {
   try {
     const id = params.id;
+    const fileId = request.nextUrl.searchParams.get("fileId");
+    
     if (!isValidUUID(id)) {
       return NextResponse.json({ error: "Invalid file ID" }, { status: 400 });
     }
-    const file = await getFileById(id);
+
+    let file;
+    if (fileId && isValidUUID(fileId)) {
+      file = await getFileById(fileId);
+      if (!file || file.batch_id !== id) {
+        return NextResponse.json({ error: "File not found" }, { status: 404 });
+      }
+    } else {
+      const batchFiles = await getFilesByBatchId(id);
+      if (batchFiles.length > 0) {
+        file = batchFiles[0];
+      } else {
+        file = await getFileById(id);
+      }
+    }
 
     if (!file) {
       return NextResponse.json({ error: "File not found" }, { status: 404 });
@@ -80,12 +110,9 @@ export async function GET(
     const stats = statSync(file.file_path);
     const stream = createReadStream(file.file_path);
 
-    const sanitizedFilename = sanitizeFilename(file.original_filename);
+    const filenameHeader = encodeFilenameForHeader(file.original_filename);
     const headers = new Headers();
-    headers.set(
-      "Content-Disposition",
-      `attachment; filename="${sanitizedFilename}"`
-    );
+    headers.set("Content-Disposition", `attachment; ${filenameHeader}`);
     headers.set("Content-Type", "application/octet-stream");
     headers.set("Content-Length", stats.size.toString());
 
@@ -110,10 +137,26 @@ export async function POST(
 ) {
   try {
     const id = params.id;
+    const fileId = request.nextUrl.searchParams.get("fileId");
+    
     if (!isValidUUID(id)) {
       return NextResponse.json({ error: "Invalid file ID" }, { status: 400 });
     }
-    const file = await getFileById(id);
+
+    let file;
+    if (fileId && isValidUUID(fileId)) {
+      file = await getFileById(fileId);
+      if (!file || file.batch_id !== id) {
+        return NextResponse.json({ error: "File not found" }, { status: 404 });
+      }
+    } else {
+      const batchFiles = await getFilesByBatchId(id);
+      if (batchFiles.length > 0) {
+        file = batchFiles[0];
+      } else {
+        file = await getFileById(id);
+      }
+    }
 
     if (!file) {
       return NextResponse.json({ error: "File not found" }, { status: 404 });
@@ -144,12 +187,9 @@ export async function POST(
     const stats = statSync(file.file_path);
     const stream = createReadStream(file.file_path);
 
-    const sanitizedFilename = sanitizeFilename(file.original_filename);
+    const filenameHeader = encodeFilenameForHeader(file.original_filename);
     const headers = new Headers();
-    headers.set(
-      "Content-Disposition",
-      `attachment; filename="${sanitizedFilename}"`
-    );
+    headers.set("Content-Disposition", `attachment; ${filenameHeader}`);
     headers.set("Content-Type", "application/octet-stream");
     headers.set("Content-Length", stats.size.toString());
 

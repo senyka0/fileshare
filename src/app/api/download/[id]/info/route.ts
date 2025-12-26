@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { existsSync } from "fs";
-import { getFileById } from "@/lib/db";
+import { getFileById, getFilesByBatchId } from "@/lib/db";
 
 function isValidUUID(id: string): boolean {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -16,7 +16,36 @@ export async function GET(
     if (!isValidUUID(id)) {
       return NextResponse.json({ error: "Invalid file ID" }, { status: 400 });
     }
+
     const file = await getFileById(id);
+    const files = await getFilesByBatchId(id);
+
+    if (files.length > 0) {
+      const now = Date.now();
+      const firstFile = files[0];
+      
+      if (firstFile.expires_at < now) {
+        return NextResponse.json({ error: "Files have expired" }, { status: 404 });
+      }
+
+      const filesInfo = files.map((f) => {
+        const fileSizeMB = (f.size / 1024 / 1024).toFixed(2);
+        return {
+          id: f.id,
+          filename: f.original_filename,
+          size: fileSizeMB,
+        };
+      });
+
+      const totalSizeMB = files.reduce((sum, f) => sum + f.size, 0) / 1024 / 1024;
+
+      return NextResponse.json({
+        files: filesInfo,
+        totalSize: totalSizeMB.toFixed(2),
+        isProtected: firstFile.password_hash !== null,
+        isBatch: true,
+      });
+    }
 
     if (!file) {
       return NextResponse.json({ error: "File not found" }, { status: 404 });
@@ -37,9 +66,14 @@ export async function GET(
     const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
 
     return NextResponse.json({
-      filename: file.original_filename,
-      size: fileSizeMB,
+      files: [{
+        id: file.id,
+        filename: file.original_filename,
+        size: fileSizeMB,
+      }],
+      totalSize: fileSizeMB,
       isProtected: file.password_hash !== null,
+      isBatch: false,
     });
   } catch (error) {
     console.error("File info error:", error);

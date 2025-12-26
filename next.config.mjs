@@ -1,6 +1,28 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.watchOptions = {
+        ...config.watchOptions,
+        ignored: [
+          "**/node_modules/**",
+          "**/.next/**",
+          "**/uploads/**",
+          "**/.git/**",
+          "**/dist/**",
+          "**/build/**",
+          "**/coverage/**",
+          "**/out/**",
+          "**/tmp/**",
+          "**/temp/**",
+        ],
+        aggregateTimeout: 300,
+        poll: false,
+      };
+    }
+    return config;
+  },
   async headers() {
     return [
       {

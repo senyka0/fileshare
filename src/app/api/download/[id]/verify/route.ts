@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { existsSync } from "fs";
 import bcrypt from "bcrypt";
-import { getFileById } from "@/lib/db";
+import { getFileById, getFilesByBatchId } from "@/lib/db";
 
 function isValidUUID(id: string): boolean {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -30,7 +30,14 @@ export async function POST(
       return NextResponse.json({ error: "Password required" }, { status: 400 });
     }
 
-    const file = await getFileById(id);
+    const files = await getFilesByBatchId(id);
+    let file;
+
+    if (files.length > 0) {
+      file = files[0];
+    } else {
+      file = await getFileById(id);
+    }
 
     if (!file) {
       return NextResponse.json({ error: "File not found" }, { status: 404 });
@@ -39,6 +46,49 @@ export async function POST(
     const now = Date.now();
     if (file.expires_at < now) {
       return NextResponse.json({ error: "File has expired" }, { status: 404 });
+    }
+
+    if (files.length > 0) {
+      if (!file.password_hash) {
+        const filesInfo = files.map((f) => {
+          const fileSizeMB = (f.size / 1024 / 1024).toFixed(2);
+          return {
+            id: f.id,
+            filename: f.original_filename,
+            size: fileSizeMB,
+          };
+        });
+        const totalSizeMB = files.reduce((sum, f) => sum + f.size, 0) / 1024 / 1024;
+        return NextResponse.json({
+          files: filesInfo,
+          totalSize: totalSizeMB.toFixed(2),
+          isProtected: false,
+          isBatch: true,
+        });
+      }
+
+      const isValid = await bcrypt.compare(password, file.password_hash);
+
+      if (!isValid) {
+        return NextResponse.json({ error: "Invalid password" }, { status: 403 });
+      }
+
+      const filesInfo = files.map((f) => {
+        const fileSizeMB = (f.size / 1024 / 1024).toFixed(2);
+        return {
+          id: f.id,
+          filename: f.original_filename,
+          size: fileSizeMB,
+        };
+      });
+      const totalSizeMB = files.reduce((sum, f) => sum + f.size, 0) / 1024 / 1024;
+
+      return NextResponse.json({
+        files: filesInfo,
+        totalSize: totalSizeMB.toFixed(2),
+        isProtected: true,
+        isBatch: true,
+      });
     }
 
     if (!existsSync(file.file_path)) {
@@ -51,9 +101,14 @@ export async function POST(
     if (!file.password_hash) {
       const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
       return NextResponse.json({
-        filename: file.original_filename,
-        size: fileSizeMB,
+        files: [{
+          id: file.id,
+          filename: file.original_filename,
+          size: fileSizeMB,
+        }],
+        totalSize: fileSizeMB,
         isProtected: false,
+        isBatch: false,
       });
     }
 
@@ -66,9 +121,14 @@ export async function POST(
     const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
 
     return NextResponse.json({
-      filename: file.original_filename,
-      size: fileSizeMB,
+      files: [{
+        id: file.id,
+        filename: file.original_filename,
+        size: fileSizeMB,
+      }],
+      totalSize: fileSizeMB,
       isProtected: true,
+      isBatch: false,
     });
   } catch (error) {
     console.error("Password verification error:", error);

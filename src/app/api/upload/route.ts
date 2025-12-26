@@ -10,8 +10,8 @@ import busboy from "busboy";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-function sanitizeFilename(filename: string): string {
-  return filename.replace(/[^a-zA-Z0-9._-]/g, "_").substring(0, 255);
+function sanitizeFilenameForStorage(filename: string): string {
+  return filename.substring(0, 255);
 }
 
 function isValidUUID(id: string): boolean {
@@ -102,6 +102,13 @@ function ensureUploadDir(): void {
   }
 }
 
+interface FileUpload {
+  id: string;
+  originalFilename: string;
+  filePath: string;
+  size: number;
+}
+
 export async function POST(request: NextRequest) {
   try {
     ensureUploadDir();
@@ -119,57 +126,69 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No request body" }, { status: 400 });
     }
 
-    return new Promise((resolve) => {
+    return new Promise<NextResponse>((resolve) => {
       const bb = busboy({ headers: { "content-type": contentType } });
-      let fileStream: WriteStream | null = null;
-      let originalFilename = "";
-      let fileSize = 0;
+      const uploadedFiles: FileUpload[] = [];
+      const fileStreams: Map<string, WriteStream> = new Map();
+      const fileSizes: Map<string, number> = new Map();
+      const fileBytesWritten: Map<string, number> = new Map();
+      const pendingFiles: Set<string> = new Set();
+      
       let expirationHours = 24;
       let passwordProtected = false;
-      let filePath: string = "";
-      let id = "";
       let password: string | null = null;
       let passwordHash: string | null = null;
+      let batchId: string | null = null;
+      let hasError = false;
+      let errorMessage = "";
+      let finishCalled = false;
 
       bb.on("file", (name, stream, info) => {
-        if (name !== "file") {
+        if (name !== "file" && !name.startsWith("file[")) {
           stream.resume();
           return;
         }
 
         if (!info.filename) {
           stream.resume();
-          resolve(
-            NextResponse.json(
-              { error: "No filename provided" },
-              { status: 400 }
-            )
-          );
           return;
         }
 
-        originalFilename = info.filename;
+        if (hasError) {
+          stream.resume();
+          return;
+        }
+
+        const originalFilename = info.filename;
         const lastDot = originalFilename.lastIndexOf(".");
         const extension =
           lastDot >= 0 ? originalFilename.toLowerCase().substring(lastDot) : "";
 
         if (!extension || !ALLOWED_EXTENSIONS.includes(extension)) {
           stream.resume();
+          hasError = true;
+          errorMessage = "File type not allowed";
           resolve(
             NextResponse.json(
-              { error: "File type not allowed" },
+              { error: errorMessage },
               { status: 400 }
             )
           );
           return;
         }
 
-        id = uuidv4();
-        if (!isValidUUID(id)) {
+        if (!batchId) {
+          batchId = uuidv4();
+        }
+
+        const id = uuidv4();
+        if (!isValidUUID(id) || !isValidUUID(batchId)) {
           stream.resume();
+          hasError = true;
+          errorMessage = "Failed to generate file ID";
           resolve(
             NextResponse.json(
-              { error: "Failed to generate file ID" },
+              { error: errorMessage },
               { status: 500 }
             )
           );
@@ -180,49 +199,62 @@ export async function POST(request: NextRequest) {
           ensureUploadDir();
         } catch (error) {
           stream.resume();
-          const errorMessage =
+          hasError = true;
+          const errMsg =
             error instanceof Error
               ? error.message
               : "Failed to create upload directory";
-          resolve(NextResponse.json({ error: errorMessage }, { status: 500 }));
+          resolve(NextResponse.json({ error: errMsg }, { status: 500 }));
           return;
         }
 
         const normalizedPath = normalize(join(UPLOAD_DIR, id));
-        filePath = resolvePath(normalizedPath);
+        const filePath = resolvePath(normalizedPath);
         const uploadDirResolved = resolvePath(UPLOAD_DIR);
 
         if (!filePath || !filePath.startsWith(uploadDirResolved)) {
           stream.resume();
+          hasError = true;
+          errorMessage = "Invalid file path";
           resolve(
-            NextResponse.json({ error: "Invalid file path" }, { status: 500 })
+            NextResponse.json({ error: errorMessage }, { status: 500 })
           );
           return;
         }
 
-        fileStream = createWriteStream(filePath);
-        let bytesWritten = 0;
+        const fileStream = createWriteStream(filePath);
+        fileStreams.set(id, fileStream);
+        fileSizes.set(id, 0);
+        fileBytesWritten.set(id, 0);
+        pendingFiles.add(id);
 
         stream.on("data", (data: Buffer) => {
-          bytesWritten += data.length;
-          fileSize = bytesWritten;
+          if (hasError) {
+            stream.destroy();
+            return;
+          }
 
-          if (fileSize > MAX_FILE_SIZE) {
+          const currentBytes = fileBytesWritten.get(id) || 0;
+          const newBytes = currentBytes + data.length;
+          fileBytesWritten.set(id, newBytes);
+          fileSizes.set(id, newBytes);
+
+          if (newBytes > MAX_FILE_SIZE) {
             stream.destroy();
             if (fileStream) {
               fileStream.destroy();
             }
+            hasError = true;
             const maxSizeGB = MAX_FILE_SIZE / 1024 / 1024 / 1024;
             const maxSizeMB = MAX_FILE_SIZE / 1024 / 1024;
             const sizeDisplay =
               maxSizeGB >= 1
                 ? `${maxSizeGB.toFixed(2)}GB`
                 : `${maxSizeMB.toFixed(2)}MB`;
+            errorMessage = `File size exceeds maximum allowed size of ${sizeDisplay}`;
             resolve(
               NextResponse.json(
-                {
-                  error: `File size exceeds maximum allowed size of ${sizeDisplay}`,
-                },
+                { error: errorMessage },
                 { status: 400 }
               )
             );
@@ -248,9 +280,28 @@ export async function POST(request: NextRequest) {
             fileStream.destroy();
           }
           console.error("Stream error:", err);
-          resolve(
-            NextResponse.json({ error: "File upload failed" }, { status: 500 })
-          );
+          if (!hasError) {
+            hasError = true;
+            errorMessage = "File upload failed";
+            resolve(
+              NextResponse.json({ error: errorMessage }, { status: 500 })
+            );
+          }
+        });
+
+        fileStream.on("close", () => {
+          const size = fileSizes.get(id) || 0;
+          uploadedFiles.push({
+            id,
+            originalFilename,
+            filePath,
+            size,
+          });
+          pendingFiles.delete(id);
+          
+          if (finishCalled && pendingFiles.size === 0) {
+            processUploadedFiles();
+          }
         });
       });
 
@@ -265,11 +316,15 @@ export async function POST(request: NextRequest) {
         }
       });
 
-      bb.on("finish", async () => {
+      const processUploadedFiles = async () => {
         try {
-          if (!fileStream || !filePath) {
+          if (hasError) {
+            return;
+          }
+
+          if (uploadedFiles.length === 0) {
             resolve(
-              NextResponse.json({ error: "No file provided" }, { status: 400 })
+              NextResponse.json({ error: "No files provided" }, { status: 400 })
             );
             return;
           }
@@ -305,20 +360,23 @@ export async function POST(request: NextRequest) {
 
           const now = Date.now();
           const expiresAt = now + expirationHours * 60 * 60 * 1000;
-          const sanitizedFilename = sanitizeFilename(originalFilename);
 
-          await insertFile(
-            id,
-            sanitizedFilename,
-            filePath,
-            fileSize,
-            expiresAt,
-            passwordHash,
-            now
-          );
+          for (const file of uploadedFiles) {
+            const filename = sanitizeFilenameForStorage(file.originalFilename);
+            await insertFile(
+              file.id,
+              filename,
+              file.filePath,
+              file.size,
+              expiresAt,
+              passwordHash,
+              now,
+              batchId
+            );
+          }
 
           const baseUrl = process.env.BASE_URL || "http://localhost:3000";
-          const url = `${baseUrl}/download/${id}`;
+          const url = `${baseUrl}/download/${batchId}`;
 
           const response: { url: string; password?: string } = { url };
           if (password) {
@@ -330,11 +388,18 @@ export async function POST(request: NextRequest) {
           console.error("Upload error:", error);
           const errorMessage =
             process.env.NODE_ENV === "production"
-              ? "Failed to upload file"
+              ? "Failed to upload files"
               : error instanceof Error
               ? error.message
-              : "Failed to upload file";
+              : "Failed to upload files";
           resolve(NextResponse.json({ error: errorMessage }, { status: 500 }));
+        }
+      };
+
+      bb.on("finish", async () => {
+        finishCalled = true;
+        if (pendingFiles.size === 0) {
+          await processUploadedFiles();
         }
       });
 
@@ -349,7 +414,6 @@ export async function POST(request: NextRequest) {
       });
 
       if (body) {
-        // @ts-expect-error - ReadableStream type compatibility issue between web and node streams
         const nodeStream = Readable.fromWeb(body);
         nodeStream.pipe(bb);
       } else {
@@ -362,10 +426,10 @@ export async function POST(request: NextRequest) {
     console.error("Upload error:", error);
     const errorMessage =
       process.env.NODE_ENV === "production"
-        ? "Failed to upload file"
+        ? "Failed to upload files"
         : error instanceof Error
         ? error.message
-        : "Failed to upload file";
+        : "Failed to upload files";
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

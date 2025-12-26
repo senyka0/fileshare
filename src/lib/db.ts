@@ -50,9 +50,10 @@ async function initSchema(): Promise<void> {
       await client.query(`
         CREATE TABLE IF NOT EXISTS files (
           id TEXT PRIMARY KEY,
+          batch_id TEXT,
           original_filename TEXT NOT NULL,
           file_path TEXT NOT NULL,
-          size INTEGER NOT NULL,
+          size BIGINT NOT NULL,
           expires_at BIGINT NOT NULL,
           password_hash TEXT,
           created_at BIGINT NOT NULL
@@ -60,21 +61,33 @@ async function initSchema(): Promise<void> {
       `);
 
       const result = await client.query(`
-        SELECT column_name 
+        SELECT column_name, data_type
         FROM information_schema.columns 
         WHERE table_name = 'files'
       `);
 
       const columnNames = result.rows.map((row) => row.column_name);
+      const columnTypes = new Map(
+        result.rows.map((row) => [row.column_name, row.data_type])
+      );
 
       if (!columnNames.includes("size")) {
         await client.query(
-          `ALTER TABLE files ADD COLUMN size INTEGER NOT NULL DEFAULT 0`
+          `ALTER TABLE files ADD COLUMN size BIGINT NOT NULL DEFAULT 0`
+        );
+      } else if (columnTypes.get("size") === "integer") {
+        await client.query(
+          `ALTER TABLE files ALTER COLUMN size TYPE BIGINT`
         );
       }
 
       if (!columnNames.includes("password_hash")) {
         await client.query(`ALTER TABLE files ADD COLUMN password_hash TEXT`);
+      }
+
+      if (!columnNames.includes("batch_id")) {
+        await client.query(`ALTER TABLE files ADD COLUMN batch_id TEXT`);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_files_batch_id ON files(batch_id)`);
       }
     } finally {
       client.release();
@@ -86,6 +99,7 @@ async function initSchema(): Promise<void> {
 
 export interface FileRecord {
   id: string;
+  batch_id: string | null;
   original_filename: string;
   file_path: string;
   size: number;
@@ -101,14 +115,15 @@ export async function insertFile(
   size: number,
   expiresAt: number,
   passwordHash: string | null,
-  createdAt: number
+  createdAt: number,
+  batchId: string | null = null
 ): Promise<void> {
   await initSchema();
   const database = initDb();
   await database.query(
-    `INSERT INTO files (id, original_filename, file_path, size, expires_at, password_hash, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-    [id, originalFilename, filePath, size, expiresAt, passwordHash, createdAt]
+    `INSERT INTO files (id, batch_id, original_filename, file_path, size, expires_at, password_hash, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [id, batchId, originalFilename, filePath, size, expiresAt, passwordHash, createdAt]
   );
 }
 
@@ -133,6 +148,16 @@ export async function getExpiredFiles(now: number): Promise<FileRecord[]> {
   const result = await database.query(
     `SELECT * FROM files WHERE expires_at < $1`,
     [now]
+  );
+  return result.rows as FileRecord[];
+}
+
+export async function getFilesByBatchId(batchId: string): Promise<FileRecord[]> {
+  await initSchema();
+  const database = initDb();
+  const result = await database.query(
+    `SELECT * FROM files WHERE batch_id = $1 ORDER BY created_at ASC`,
+    [batchId]
   );
   return result.rows as FileRecord[];
 }
